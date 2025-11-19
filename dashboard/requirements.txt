@@ -1,0 +1,6 @@
+pandas
+pyarrow
+geopandas
+plotly
+dash
+dash-bootstrap-components
