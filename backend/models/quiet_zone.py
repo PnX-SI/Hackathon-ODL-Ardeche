@@ -1,0 +1,11 @@
+from db import utils.env
+
+class QuietZone(db.Model):
+    """
+    Zone de quietude
+    """
+    __tablename__ = "quiet_zone"
+    __table_args__ = {"schema": "ardeche"}
+    id = db.Column(db.Integer, primary_key=True)
+    cd_nom = db.Column(db.Integer)
+    geom = db.Column(Geometry("MULTIPOLYGON"))
