@@ -1,4 +1,5 @@
 flask
 flask-sqlalchemy
 sqlalchemy
+geoalchemy2
 psycopg2
