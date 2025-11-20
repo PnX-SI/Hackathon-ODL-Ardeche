@@ -8,6 +8,7 @@ PIP := $(VENV)/bin/pip
 DB_NAME := hackathon
 DB_USER := hackathon
 DB_HOST := localhost
+DB_PASSWORD := admin
 DB_PORT := 5432
 
 GPKG := data.gpkg
@@ -18,7 +19,7 @@ SQL_SEED := migrations/create_tables.sql
 # ================================
 # Cible par défaut
 # ================================
-all: venv install db seed
+all: venv install db seed import_sql
 
 # ================================
 # 1. Création du venv
@@ -37,6 +38,12 @@ install: venv
 # 3. Création de la base PostgreSQL
 # ================================
 db:
+	@echo "Création de l'utilisateur PostgreSQL $(DB_USER) s'il n'existe pas..."
+	@psql -U postgres -h $(DB_HOST) -p $(DB_PORT) -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='$(DB_USER)';" | grep -q 1 || \
+		psql -U postgres -h $(DB_HOST) -p $(DB_PORT) -d postgres -c "CREATE USER $(DB_USER) WITH PASSWORD '$(DB_PASSWORD)' CREATEDB;"
+	@psql -U postgres -h $(DB_HOST) -p $(DB_PORT) -d postgres -c "GRANT pg_read_server_files TO $(DB_USER);"
+	@echo "Utilisateur prêt : $(DB_USER)"
+
 	@echo "Création de la base PostgreSQL..."
 	@psql -U $(DB_USER) -h $(DB_HOST) -p $(DB_PORT) -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='$(DB_NAME)';" | grep -q 1 || \
 		psql -U $(DB_USER) -h $(DB_HOST) -p $(DB_PORT) -d postgres -c "CREATE DATABASE $(DB_NAME);"
@@ -56,6 +63,15 @@ seed:
 	@psql -U $(DB_USER) -h $(DB_HOST) -p $(DB_PORT) -d $(DB_NAME) -f $(SQL_SEED)
 	@echo "Base peuplée."
 
+import_sql:
+	@echo "Import de migrations supplémentaires..."
+	@psql -U $(DB_USER) -h $(DB_HOST) -p $(DB_PORT) -d $(DB_NAME) -f migrations/create_import_tables.sql
+	@psql -U $(DB_USER) -h $(DB_HOST) -p $(DB_PORT) -d $(DB_NAME) \
+		-f migrations/import_ecocompteur_embedded.sql
+	@psql -U $(DB_USER) -h $(DB_HOST) -p $(DB_PORT) -d $(DB_NAME) \
+		-f migrations/import_quiet_zone_embedded.sql
+	@echo "Imports terminés."
+
 import_gpkg:
 	@echo "Import du GeoPackage dans PostgreSQL..."
 	ogr2ogr -f PostgreSQL PG:$(DB_CONN) $(GPKG) -nln building_data batiments -overwrite
@@ -68,4 +84,4 @@ clean:
 	rm -rf $(VENV)
 	@echo "Suppression du venv (la base PostgreSQL n'est pas supprimée)."
 
-.PHONY: all venv install db seed clean
+.PHONY: all venv install db seed import_sql import_gpkg clean
