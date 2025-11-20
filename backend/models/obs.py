@@ -7,17 +7,6 @@ class Obs(db.Model):
     Observations de biodiv
     """
 
-    [
-        "cd_nom",
-        "group2_inpn",
-        "niveau_sensibilite",
-        "date_debut",
-        "date_fin",
-        "behaviour",
-        "species_age",
-        "geometry",
-    ]
-
     __tablename__ = "obs"
     __table_args__ = {"schema": "ardeche"}
     id = db.Column(db.Integer, primary_key=True)
