@@ -1,0 +1,6 @@
+{
+    "chanet": {"lat": 44.3526504, "lon": 4.460915, "label": "Chanet"},
+    "pigeonnier": {"lat": 44.4493175, "lon": 4.1504749, "label": "Pigeonnier"},
+    "pontdarc": {"lat": 44.3822496, "lon": 4.3959574, "label": "Pont d'Arc"},
+    "tioure": {"lat": 44.3867412, "lon": 4.4246249, "label": "Tiourre"}
+}
