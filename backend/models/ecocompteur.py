@@ -1,4 +1,4 @@
-from utils.env import db
+from backend.utils.env import db
 from geoalchemy2 import Geometry
 
 

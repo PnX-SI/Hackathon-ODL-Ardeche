@@ -1,4 +1,4 @@
-from utils.env import db
+from backend.utils.env import db
 from geoalchemy2 import Geometry
 
 
@@ -8,7 +8,6 @@ class Obs(db.Model):
     """
 
     __tablename__ = "obs"
-    __table_args__ = {"schema": "ardeche"}
     id = db.Column(db.Integer, primary_key=True)
     cd_nom = db.Column(db.Integer)
     nom_valide = db.Column(db.Unicode)
