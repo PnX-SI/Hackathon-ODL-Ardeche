@@ -17,6 +17,7 @@ data_folder = "/".join(__file__.split("/")[:-2]) + "/data/"
 
 external_stylesheets = [dbc.themes.BOOTSTRAP, 'https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+app.title = "Ardashboard"
 
 print("Loading data")
 biodiv = gpd.read_file(data_folder + "biodiv_agg.geojson")
@@ -25,6 +26,7 @@ biodiv["annee_mois"] = biodiv.apply(
     axis=1,
 )
 available_months = sorted(biodiv["annee_mois"].unique())
+intersect_file = data_folder + "biodiv_intersects.parquet"
 
 def month_label(month: str):
     mapping: dict[str, str] = {
@@ -63,25 +65,30 @@ def get_coords(geom):
         return [[], []]
 
 
-def build_figure(gdf: gpd.GeoDataFrame):
-    gdf_exploded = gdf.explode(index_parts=False)
-    gdf_exploded['lon'], gdf_exploded['lat'] = zip(*gdf_exploded['geometry'].apply(get_coords))
-    lon = flatten_with_none([[l for l in gdf_exploded["lon"]][k].tolist() for k in range(len(gdf_exploded))])
-    labels = []
-    idx = 0
-    for k in range(len(lon)):
-        if lon[k] is None:
-            idx += 1
-        labels.append(gdf_exploded["nom_valide"].iloc[gdf_exploded.index[idx]])
-    fig = go.Figure(
-        go.Scattermap(
+def build_figure(gdf: gpd.GeoDataFrame, intersect: gpd.GeoDataFrame):
+    def _build_scattermap(gdf, **kwargs):
+        gdf_exploded = gdf.explode(index_parts=False)
+        gdf_exploded['lon'], gdf_exploded['lat'] = zip(*gdf_exploded['geometry'].apply(get_coords))
+        lon = flatten_with_none([[l for l in gdf_exploded["lon"]][k].tolist() for k in range(len(gdf_exploded))])
+        labels = []
+        idx = 0
+        for k in range(len(lon)):
+            if lon[k] is None:
+                idx += 1
+            labels.append(gdf_exploded["nom_valide"].iloc[gdf_exploded.index[idx]])
+        return go.Scattermap(
             mode = "lines",
-            fill = "toself",
             lon = lon,
             lat = flatten_with_none([[l for l in gdf_exploded["lat"]][k].tolist() for k in range(len(gdf_exploded))]),
             text= labels,
+            **kwargs,
         )
-    )
+
+    print("Creating figure")
+    fig = go.Figure(_build_scattermap(gdf, **{"fill": "toself"}))
+    print("Adding trace")
+    # only a subset here because it's so slow
+    fig.add_trace(_build_scattermap(intersect[:min(3000, len(intersect))], **{"marker": {"size": 5, "color": 'red'}}))
     fig.update_layout(
         map = {'style': "open-street-map", 'center': {'lon': 4.594, 'lat': 44.364}, 'zoom': 10},
         showlegend = False,
@@ -187,20 +194,28 @@ app.layout = dbc.Container(
 def update_map(
     months_idx: tuple[int, int], species: str, behaviour: str, sensibility: str, species_age: str,
 ):
-    print(months_idx, species, sensibility, behaviour)
+    filters = []
     mmin, mmax = months_idx
     restr = biodiv.loc[
         (biodiv["annee_mois"].between(available_months[mmin], available_months[mmax]))
     ]
     if species is not None:
         restr = restr.loc[restr["nom_valide"] == species]
+        filters.append(("nom_valide", "=", species))
     if behaviour is not None:
         restr = restr.loc[restr["behaviour"] == behaviour]
+        filters.append(("behaviour", "=", behaviour))
     if sensibility is not None:
         restr = restr.loc[restr["niveau_sensibilite"] == sensibility]
+        filters.append(("niveau_sensibilite", "=", sensibility))
     if species_age is not None:
         restr = restr.loc[restr["species_age"] == species_age]
-    return build_figure(restr.reset_index(drop=True))
+        filters.append(("species_age", "=", species_age))
+    intersect = gpd.read_parquet(
+        intersect_file,
+        filters=filters or None,
+    )
+    return build_figure(restr.reset_index(drop=True), intersect)
 
 
 # %%
