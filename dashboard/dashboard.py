@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-import json
-
+from os import truncate
 import dash
 from dash import dcc
 from dash import html
@@ -20,15 +19,12 @@ external_stylesheets = [dbc.themes.BOOTSTRAP, 'https://codepen.io/chriddyp/pen/b
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 print("Loading data")
-ardeche = pd.read_parquet(
-    "https://object.files.data.gouv.fr/hydra-parquet/hydra-parquet/5b3c2cee-44b7-48bd-b4e8-439a03ff6cd2.parquet",
-    columns=["Nom_du_POI", "Latitude", "Longitude", "Code_postal_et_commune"],
-    filters=[("Code_postal_et_commune", ">", "07"), ("Code_postal_et_commune", "<", "08")],
+biodiv = gpd.read_file(data_folder + "biodiv_agg.geojson")
+biodiv["annee_mois"] = biodiv.apply(
+    lambda df: f"{df['year_date']}-{'0' + str(month) if (month := df['year_month']) < 10 else month}",
+    axis=1,
 )
-compteur = pd.read_csv(data_folder + "ecocompteur.csv")
-available_months = sorted(compteur["time"].str.slice(0,7).unique())
-with open(data_folder + "coords.json") as f:
-    sites = json.load(f)
+available_months = sorted(biodiv["annee_mois"].unique())
 
 def month_label(month: str):
     mapping: dict[str, str] = {
@@ -49,12 +45,56 @@ def month_label(month: str):
     return f"{mapping[m]} {year}"
 
 
+def flatten_with_none(list_of_lists_of_coords: list[list[float]]) -> list[float | None]:
+    result = []
+    for sublist in list_of_lists_of_coords:
+        result.extend(sublist)
+        result.append(None)
+    return result[:-1]  # pop last None
+
+
+def get_coords(geom):
+    if geom.geom_type == 'Polygon':
+        return list(geom.exterior.coords.xy)
+    elif geom.geom_type == 'MultiPolygon':
+        # For MultiPolygon, return the exterior of the first Polygon (or handle as needed)
+        return list(geom.geoms[0].exterior.coords.xy)
+    else:
+        return [[], []]
+
+
+def build_figure(gdf: gpd.GeoDataFrame):
+    gdf_exploded = gdf.explode(index_parts=False)
+    gdf_exploded['lon'], gdf_exploded['lat'] = zip(*gdf_exploded['geometry'].apply(get_coords))
+    lon = flatten_with_none([[l for l in gdf_exploded["lon"]][k].tolist() for k in range(len(gdf_exploded))])
+    labels = []
+    idx = 0
+    for k in range(len(lon)):
+        if lon[k] is None:
+            idx += 1
+        labels.append(gdf_exploded["nom_valide"].iloc[gdf_exploded.index[idx]])
+    fig = go.Figure(
+        go.Scattermap(
+            mode = "lines",
+            fill = "toself",
+            lon = lon,
+            lat = flatten_with_none([[l for l in gdf_exploded["lat"]][k].tolist() for k in range(len(gdf_exploded))]),
+            text= labels,
+        )
+    )
+    fig.update_layout(
+        map = {'style': "open-street-map", 'center': {'lon': 4.594, 'lat': 44.364}, 'zoom': 10},
+        showlegend = False,
+        margin = {'l':0, 'r':0, 'b':0, 't':0})
+    return fig
+
+
 # %% APP LAYOUT:
 app.layout = dbc.Container(
     [
         dbc.Row([
             html.H3(
-                "Carto Ardèche",
+                "Espèces sensibles en Ardèche",
                 style={
                     "padding": "5px 0px 10px 0px",  # "padding": "top right down left"
                 }),
@@ -69,47 +109,98 @@ app.layout = dbc.Container(
                 id="months_slider",
                 marks={
                     k: month_label(available_months[k])
-                    for k in range(0, len(available_months), 18)
+                    for k in range(0, len(available_months), 9)
                 } | {len(available_months) - 1: month_label(available_months[-1])},
             ),
         ]),
         dbc.Row([
-            dcc.Graph(id="map"),
+            html.H6("Espèce d'intérêt"),
+            dcc.Dropdown(
+                id="species",
+                options=[
+                    {
+                        "label": espece,
+                        "value": espece,
+                    }
+                    for espece in biodiv["nom_valide"].unique()
+                ]
+            ),
         ]),
+        dbc.Row([
+            html.H6("Comportement"),
+            dcc.Dropdown(
+                id="behaviour",
+                options=[
+                    {
+                        "label": behaviour,
+                        "value": behaviour,
+                    }
+                    for behaviour in biodiv["behaviour"].unique()
+                ]
+            ),
+        ]),
+        dbc.Row([
+            html.H6("Niveau de sensibilité"),
+            dcc.Dropdown(
+                id="sensibility",
+                options=[
+                    {
+                        "label": sensibility,
+                        "value": sensibility,
+                    }
+                    for sensibility in biodiv["niveau_sensibilite"].unique()
+                ]
+            ),
+        ]),
+        dbc.Row([
+            html.H6("Âge des individus"),
+            dcc.Dropdown(
+                id="species_age",
+                options=[
+                    {
+                        "label": species_age,
+                        "value": species_age,
+                    }
+                    for species_age in biodiv["species_age"].unique()
+                ]
+            ),
+        ]),
+        dbc.Row([
+            dcc.Graph(id="map"),
+        ],
+            style={"padding": "15px 0px 5px 0px"},
+        ),
     ])
+
 
 # %% Callbacks
 @dash.callback(
     Output("map", "figure"),
-    [Input("months_slider", "value")],
+    [
+        Input("months_slider", "value"),
+        Input("species", "value"),
+        Input("behaviour", "value"),
+        Input("sensibility", "value"),
+        Input("species_age", "value"),
+    ],
 )
-def update_map(months_idx: tuple[int, int]):
+def update_map(
+    months_idx: tuple[int, int], species: str, behaviour: str, sensibility: str, species_age: str,
+):
+    print(months_idx, species, sensibility, behaviour)
     mmin, mmax = months_idx
-    restr = compteur.loc[
-        compteur["month"].between(available_months[mmin], available_months[mmax])
+    restr = biodiv.loc[
+        (biodiv["annee_mois"].between(available_months[mmin], available_months[mmax]))
     ]
-    stats = restr.groupby("site")["count"].sum().reset_index()
-    for coord in ["lat", "lon"]:
-        stats[coord] = stats["site"].apply(lambda lab: sites[lab][coord])
-    stats["label"] = stats["site"].apply(lambda lab: sites[lab]["label"])
-    fig = px.scatter_map(
-        stats,
-        lat="lat",
-        lon="lon",
-        hover_name="label",
-        size="count",
-    )
-    fig.add_trace(
-        go.Scattermap(
-            lon = ardeche["Longitude"],
-            lat = ardeche["Latitude"],
-            text = ardeche['Nom_du_POI'],
-            mode="markers",
-            marker=go.scattermap.Marker(size=6, color="red"),
-        )
-    )
-    fig.update_layout(showlegend=False)
-    return fig
+    if species is not None:
+        restr = restr.loc[restr["nom_valide"] == species]
+    if behaviour is not None:
+        restr = restr.loc[restr["behaviour"] == behaviour]
+    if sensibility is not None:
+        restr = restr.loc[restr["niveau_sensibilite"] == sensibility]
+    if species_age is not None:
+        restr = restr.loc[restr["species_age"] == species_age]
+    return build_figure(restr.reset_index(drop=True))
 
 
 # %%
