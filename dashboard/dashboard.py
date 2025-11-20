@@ -14,6 +14,8 @@ import plotly.graph_objects as go
 import pandas as pd
 import geopandas as gpd
 
+data_folder = "/".join(__file__.split("/")[:-2]) + "/data/"
+
 external_stylesheets = [dbc.themes.BOOTSTRAP, 'https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
@@ -23,9 +25,9 @@ ardeche = pd.read_parquet(
     columns=["Nom_du_POI", "Latitude", "Longitude", "Code_postal_et_commune"],
     filters=[("Code_postal_et_commune", ">", "07"), ("Code_postal_et_commune", "<", "08")],
 )
-compteur = pd.read_csv("data/ecocompteur.csv")
+compteur = pd.read_csv(data_folder + "ecocompteur.csv")
 available_months = sorted(compteur["time"].str.slice(0,7).unique())
-with open("data/coords.json") as f:
+with open(data_folder + "coords.json") as f:
     sites = json.load(f)
 
 def month_label(month: str):
