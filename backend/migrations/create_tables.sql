@@ -8,7 +8,6 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE TABLE ardeche.obs (
     id SERIAL PRIMARY KEY,
     cd_nom INTEGER,
-    behaviour TEXT,
     nom_valide TEXT,
     geometry geometry(Point, 4326),  -- 4326 par défaut, adapte si besoin
     date_debut DATE,
