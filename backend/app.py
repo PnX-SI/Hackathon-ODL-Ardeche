@@ -3,7 +3,7 @@ from flask import Flask
 from backend.routes.routes import routes
 from backend.utils.env import db
 
-DATABASE_URL = "postgresql://utilisateur:motdepasse@localhost:5432/nom_de_la_base"
+DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/hackathon"
 
 
 def create_app() -> Flask:

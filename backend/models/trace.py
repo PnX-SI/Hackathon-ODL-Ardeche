@@ -13,3 +13,13 @@ class Trace(db.Model):
     date_start = db.Column(db.Date)
     date_end = db.Column(db.Date)
     geom = db.Column(Geometry("MULTIPOLYGON"))
+
+
+class Grille(db.Model):
+    """
+    Grille
+    """
+
+    __tablename__ = "grille_200_4326"
+    id = db.Column(db.Integer, primary_key=True)
+    geom = db.Column(Geometry("MULTIPOLYGON"))
