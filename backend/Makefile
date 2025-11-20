@@ -7,11 +7,12 @@ PIP := $(VENV)/bin/pip
 
 DB_NAME := hackathon
 DB_USER := hackathon
+DB_PASSWORD := hackathon
 DB_HOST := localhost
 DB_PASSWORD := admin
 DB_PORT := 5432
 
-GPKG := data.gpkg
+GPKG := ../data/CC_Gorges_Ardeche_2020_2024_0.gpkg
 DB_CONN := "host=$(DB_HOST) port=$(DB_PORT) dbname=$(DB_NAME) user=$(DB_USER) password=$(DB_PASSWORD)"
 
 SQL_SEED := migrations/create_tables.sql
@@ -19,7 +20,7 @@ SQL_SEED := migrations/create_tables.sql
 # ================================
 # Cible par défaut
 # ================================
-all: venv install db seed import_sql
+all: venv install db seed import_sql import_gpkg
 
 # ================================
 # 1. Création du venv
@@ -74,7 +75,7 @@ import_sql:
 
 import_gpkg:
 	@echo "Import du GeoPackage dans PostgreSQL..."
-	ogr2ogr -f PostgreSQL PG:$(DB_CONN) $(GPKG) -nln building_data batiments -overwrite
+	ogr2ogr -f PostgreSQL PG:$(DB_CONN) $(GPKG) -nln ardeche.trace -select "id, track_id, date_start, date_end, geom" -append CC_Gorges_Ardeche_2020_2024_0 -overwrite
 	@echo "Import terminé."
 
 # ================================
