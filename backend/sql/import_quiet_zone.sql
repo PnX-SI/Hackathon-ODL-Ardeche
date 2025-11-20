@@ -12,7 +12,7 @@ BEGIN;
 CREATE TEMP TABLE tz_quiet_zone_import (
     wkt text,
     id_nom text,
-    nom text,
+    nom_valide text,
     cd_nom integer,
     espece text,
     sensib text,
@@ -48,10 +48,10 @@ FROM :'csv_path'
 WITH (FORMAT csv, DELIMITER ';', HEADER true, NULL '');
 
 -- Insère dans le schéma ardeche.quiet_zone
-INSERT INTO ardeche.quiet_zone (cd_nom, nom, geom)
+INSERT INTO ardeche.quiet_zone (cd_nom, nom_valide, geom)
 SELECT DISTINCT
     t.cd_nom,
-    t.nom,
+    t.nom_valide,
     ST_SetSRID(ST_GeomFromText(t.wkt), 4326)::geometry(MULTIPOLYGON, 4326)
 FROM tz_quiet_zone_import t
 WHERE t.wkt IS NOT NULL
