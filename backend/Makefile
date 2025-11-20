@@ -10,7 +10,7 @@ DB_USER := hackathon
 DB_HOST := localhost
 DB_PORT := 5432
 
-SQL_SEED := seed.sql
+SQL_SEED := migrations/create_tables.sql
 
 # ================================
 # Cible par défaut
