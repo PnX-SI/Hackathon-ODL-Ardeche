@@ -9,7 +9,6 @@ DB_NAME := hackathon
 DB_USER := hackathon
 DB_PASSWORD := hackathon
 DB_HOST := localhost
-DB_PASSWORD := admin
 DB_PORT := 5432
 
 GPKG := ../data/CC_Gorges_Ardeche_2020_2024_0.gpkg
