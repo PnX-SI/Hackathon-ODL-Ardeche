@@ -1,28 +1,31 @@
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-
 from flask import Flask
 
-app = Flask(__name__)
+from backend.routes.routes import routes
+from backend.utils.env import db
+
 DATABASE_URL = "postgresql://utilisateur:motdepasse@localhost:5432/nom_de_la_base"
 
-engine = create_engine(DATABASE_URL)
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def create_app() -> Flask:
+    app = Flask(__name__)
+    app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-Base = declarative_base()
+    db.init_app(app)
+    app.register_blueprint(routes)
+
+    @app.route("/")
+    def hello_world():
+        return "<p>Hello, World!</p>"
+
+    return app
 
 
-def init_db():
-    Base.metadata.create_all(bind=engine)
-
-
-@app.route("/")
-def hello_world():
-    return "<p>Hello, World!</p>"
+app = create_app()
 
 
 if __name__ == "__main__":
-    init_db()
-    print("Base de données initialisée avec succès !")
+    # Crée les tables si elles n'existent pas encore
+    with app.app_context():
+        db.create_all()
+        print("Base de données initialisée avec succès !")
