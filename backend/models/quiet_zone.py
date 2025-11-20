@@ -11,4 +11,5 @@ class QuietZone(db.Model):
     __table_args__ = {"schema": "ardeche"}
     id = db.Column(db.Integer, primary_key=True)
     cd_nom = db.Column(db.Integer)
+    nom = db.Column(db.String(255))
     geom = db.Column(Geometry("MULTIPOLYGON"))
